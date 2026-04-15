@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RTX - CA Certificate Status</title>
+  <meta name="description" content="RTX CA Certificate expiry monitoring dashboard - Enterprise CA and self-signed certificate health">
+  <link rel="icon" type="image/svg+xml" href="rtx_logo.svg">
+  <link rel="stylesheet" href="styles.css?v=1.1">
+  <style>
+    /* CA-specific supplement - heartbeat dot, back-to-top */
+    .heartbeat-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green-glow), 0 0 12px var(--green-glow);
+      animation: blink 2s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+    .back-to-top {
+      position: fixed; bottom: 24px; right: 24px; z-index: 200;
+      width: 36px; height: 36px; border-radius: 50%;
+      border: 1px solid var(--border-medium);
+      background: rgba(13,19,32,0.85); backdrop-filter: blur(12px);
+      color: var(--text-muted); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity var(--t-base), border-color var(--t-fast), color var(--t-fast);
+    }
+    .back-to-top.visible { opacity: 1; pointer-events: auto; }
+    .back-to-top:hover { border-color: var(--teal); color: var(--teal); }
+    .page-top-accent {
+      height: 2px;
+      background: linear-gradient(90deg, var(--rtx-red), #e8334a, var(--teal), #a855f7, var(--rtx-red));
+      background-size: 300% auto;
+      animation: gradientShift 6s linear infinite;
+    }
+    .pill { display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:0.65rem;font-weight:700;letter-spacing:1px;text-transform:uppercase; }
+    .pill-green { background:var(--green-dim);color:var(--green);border:1px solid rgba(0,230,138,0.25); }
+    .pill-amber { background:var(--amber-dim);color:var(--amber);border:1px solid rgba(255,170,0,0.25); }
+    .pill-red   { background:var(--red-dim);color:var(--red);border:1px solid rgba(255,68,102,0.25); }
+    .header-badge { display:inline-flex;align-items:center;gap:6px;padding:4px 14px;border-radius:20px;font-family:'JetBrains Mono',monospace;font-size:0.72rem;font-weight:600;letter-spacing:1.5px;text-transform:uppercase; }
+    .full-width { grid-column: 1 / -1; }
+    .fade-in { animation: fadeIn 0.5s ease both; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+    /* data-table shared style */
+    .table-container { overflow-x:auto; }
+    .data-table { width:100%;border-collapse:collapse;font-size:0.78rem; }
+    .data-table thead th { padding:8px 12px;text-align:left;font-size:0.68rem;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border-subtle);white-space:nowrap; }
+    .data-table tbody tr { border-bottom:1px solid var(--border-subtle);transition:background var(--t-fast); }
+    .data-table tbody tr:last-child { border-bottom:none; }
+    .data-table tbody tr:hover { background:rgba(0,212,255,0.03);box-shadow:inset 3px 0 0 var(--teal); }
+    .data-table td { padding:8px 12px;color:var(--text-primary);vertical-align:middle; }
+    /* skeleton */
+    .loading-skeleton { padding:16px 20px; }
+    .skeleton-header { margin-bottom:16px; }
+    .skeleton-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px; }
+    .skeleton-card { border-radius:12px;padding:16px;background:rgba(255,255,255,0.03);border:1px solid var(--border-subtle); }
+    .skeleton-pulse { border-radius:6px;background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.08) 50%,rgba(255,255,255,0.04) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite; }
+    @keyframes shimmer { to { background-position:-200% 0; } }
+  </style>
+</head>
+
+<body>
+  <div class="page-top-accent"></div>
+
+  <header class="dashboard-header">
+    <div class="header-left">
+      <img src="rtx_logo.svg" alt="RTX" class="header-logo">
+      <div class="header-divider"></div>
+      <div>
+        <div class="header-title">CA CERTIFICATE STATUS</div>
+        <div class="header-subtitle">Certificate Expiry Monitor</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <span style="display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,rgba(0,212,255,0.18),rgba(0,212,255,0.08));border:1px solid rgba(0,212,255,0.35);color:rgba(0,212,255,0.95);font-size:0.65rem;font-weight:700;letter-spacing:1.5px;padding:4px 10px;border-radius:4px;text-transform:uppercase;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        PKI
+      </span>
+      <span id="userBadge" style="display:none;align-items:center;gap:5px;background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.2);color:rgba(0,212,255,0.85);font-size:0.62rem;font-weight:600;letter-spacing:0.8px;padding:4px 10px;border-radius:4px;font-family:'JetBrains Mono',monospace;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span id="userName">-</span>
+      </span>
+      <script>
+        fetch('/api/whoami?t=' + new Date().getTime(), { cache: 'no-store', credentials: 'include' }).then(function(r){return r.json()}).then(function(d){
+          if(d.user){
+            var name=d.user; var parts=name.split('\\'); if(parts.length>1) name=parts[1];
+            document.getElementById('userName').textContent=name.toUpperCase();
+            document.getElementById('userBadge').style.display='inline-flex';
+          }
+        }).catch(function(){});
+      </script>
+      <span class="header-badge" id="dataBadge">-</span>
+      <div class="refresh-info">
+        <span class="heartbeat-dot"></span>
+        <span>LAST REFRESH: <span id="lastRefresh">-</span> <span style="margin-left:12px;opacity:0.5;font-size:0.58rem;" id="liveClock"></span></span>
+      </div>
+      <div class="dropdown-container" style="position:relative;display:inline-block;margin-left:12px;">
+        <button id="settingsBtn" title="Settings" style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:var(--text-secondary);cursor:pointer;transition:all 0.3s ease;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        </button>
+        <div id="settingsMenu" style="visibility:hidden;display:flex;position:absolute;right:0;top:calc(100% + 12px);background:var(--bg-surface);border:1px solid var(--border-medium);border-radius:12px;padding:10px;flex-direction:column;min-width:220px;box-shadow:0 15px 50px rgba(0,0,0,0.8);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);z-index:999;opacity:0;transform:translateY(-10px);pointer-events:none;transition:all 0.2s cubic-bezier(0.175,0.885,0.32,1.275);">
+          <a href="faq.html" class="settings-item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--teal);flex-shrink:0;"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span>Technical Reference</span>
+          </a>
+          <div style="height:1px;background:var(--border-subtle);margin:4px 8px;"></div>
+          <button id="themeToggle" class="settings-item">
+            <div style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:rgba(0,212,255,0.12);border:1px solid rgba(0,212,255,0.25);">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+            </div>
+            <span>Switch to Frosty Theme</span>
+          </button>
+          <button id="fullscreenBtn" class="settings-item" onclick="if(document.fullscreenElement){document.exitFullscreen()}else{document.documentElement.requestFullscreen()}">
+            <div style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:rgba(0,212,255,0.12);border:1px solid rgba(0,212,255,0.25);">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+            </div>
+            <span>Fullscreen</span>
+          </button>
+        </div>
+        <style>
+          #settingsBtn:hover { background: var(--bg-hover) !important; color: var(--text-primary) !important; transform: rotate(30deg); }
+          .settings-item { display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;font-family:'Inter',sans-serif;font-size:0.8rem;font-weight:500;color:var(--text-primary);background:transparent;border:none;cursor:pointer;transition:all 0.2s;text-align:left;text-decoration:none;width:100%; }
+          .settings-item:hover { background:var(--bg-hover);border-left:2px solid var(--teal);padding-left:12px;transform:translateX(2px); }
+          #settingsMenu.show { visibility:visible !important;opacity:1 !important;transform:translateY(0) !important;pointer-events:auto !important; }
+        </style>
+        <script>
+          document.getElementById('settingsBtn').addEventListener('click', function(e) {
+            document.getElementById('settingsMenu').classList.toggle('show');
+            e.stopPropagation();
+          });
+          document.addEventListener('click', function(e) {
+            var m = document.getElementById('settingsMenu');
+            if(m && m.classList.contains('show') && !m.contains(e.target)) m.classList.remove('show');
+          });
+        </script>
+      </div>
+    </div>
+  </header>
+  <div id="loadingSkeleton" class="loading-skeleton">
+    <div class="skeleton-header">
+      <div class="skeleton-pulse" style="width:200px;height:18px;"></div>
+    </div>
+    <div class="skeleton-grid">
+      <div class="skeleton-card"><div class="skeleton-pulse" style="width:60%;height:13px;margin-bottom:12px;"></div><div class="skeleton-pulse" style="width:80%;height:28px;margin-bottom:8px;"></div><div class="skeleton-pulse" style="width:40%;height:10px;"></div></div>
+      <div class="skeleton-card"><div class="skeleton-pulse" style="width:50%;height:13px;margin-bottom:12px;"></div><div class="skeleton-pulse" style="width:70%;height:28px;margin-bottom:8px;"></div><div class="skeleton-pulse" style="width:45%;height:10px;"></div></div>
+      <div class="skeleton-card"><div class="skeleton-pulse" style="width:55%;height:13px;margin-bottom:12px;"></div><div class="skeleton-pulse" style="width:65%;height:28px;margin-bottom:8px;"></div><div class="skeleton-pulse" style="width:35%;height:10px;"></div></div>
+    </div>
+    <div class="skeleton-grid" style="margin-top:14px;">
+      <div class="skeleton-card" style="grid-column:1/-1;"><div class="skeleton-pulse" style="width:100%;height:100px;"></div></div>
+    </div>
+  </div>
+  <main class="dashboard-main" id="dashboardMain">
+
+    <section class="dashboard-section revealed" id="section-cacerts" style="padding-top:8px;">
+      <div class="section-header">
+        <div class="section-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="11" width="18" height="11" rx="2" fill="rgba(0,212,255,0.12)" />
+            <rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" stroke-width="1.5" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            <circle cx="12" cy="16" r="1.5" fill="currentColor" opacity="0.6" />
+          </svg>
+        </div>
+        <div>
+          <div class="section-title">CA Certificate Expiry</div>
+          <div class="section-desc">Enterprise CA chain and self-signed certificate expiry status across this environment</div>
+        </div>
+        
+      </div>
+      <div class="glass-card stat-card full-width" style="margin-bottom:12px;">
+        <div class="stat-card-header">
+          <div class="stat-card-title">ENTERPRISE CA CERTIFICATES</div>
+          
+        </div>
+        <div id="caCertEnterpriseTable"><div style="padding:40px; text-align:center; color:var(--text-muted); font-size:0.85rem;">Waiting for CA telemetry payload...</div></div>
+      </div>
+
+      <div class="glass-card stat-card full-width">
+        <div class="stat-card-header">
+          <div class="stat-card-title">SELF-SIGNED / LOCAL MACHINE CERTIFICATES</div>
+          
+        </div>
+        <div id="caCertSelfSignedTable"><div style="padding:40px; text-align:center; color:var(--text-muted); font-size:0.85rem;">Waiting for CA telemetry payload...</div></div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <button id="backToTop" class="back-to-top" aria-label="Back to top" title="Back to top">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="18 15 12 9 6 15" />
+    </svg>
+  </button>
+
+  <script src="app.js?v=2"></script>
+  <script src="cacert.js?v=2"></script>
+</body>
+
+</html>
+

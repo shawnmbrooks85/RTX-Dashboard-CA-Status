@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RTX CA Certificate Status - Technical Reference</title>
+<meta name="description" content="Technical reference for the RTX CA Certificate Status Dashboard - architecture, data collection, certificate discovery, deployment, and troubleshooting">
+<link rel="icon" type="image/svg+xml" href="rtx_logo.svg">
+<link rel="stylesheet" href="styles.css">
+<style>
+.faq-main{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:32px 24px 64px}
+.faq-back{display:inline-flex;align-items:center;gap:6px;padding:6px 16px;border-radius:20px;font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;text-decoration:none;color:var(--teal);border:1px solid rgba(0,212,255,.25);background:rgba(0,212,255,.06);transition:all .3s ease;margin-bottom:24px}
+.faq-back:hover{border-color:rgba(0,212,255,.5);background:rgba(0,212,255,.12);box-shadow:0 0 12px rgba(0,212,255,.15)}
+.faq-hero{text-align:center;margin-bottom:40px}
+.faq-hero h1{font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:#fff;text-shadow:0 0 8px rgba(0,212,255,.6),0 0 25px rgba(0,212,255,.2);margin-bottom:8px}
+.faq-hero p{font-size:.85rem;color:var(--text-secondary);letter-spacing:.5px;max-width:640px;margin:0 auto}
+.faq-toc{margin-bottom:40px}
+.faq-toc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px}
+.faq-toc a{display:block;padding:10px 14px;border-radius:var(--r-md);font-size:.78rem;color:var(--teal);text-decoration:none;border:1px solid var(--border-subtle);background:var(--bg-card);transition:all .3s ease;font-family:'JetBrains Mono',monospace;letter-spacing:.5px}
+.faq-toc a:hover{border-color:var(--border-accent);background:var(--bg-hover);box-shadow:0 0 12px rgba(0,212,255,.08)}
+.faq-toc a span{color:var(--text-muted);margin-right:6px;font-size:.65rem}
+.faq-section{margin-bottom:32px}
+.faq-section-title{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:var(--teal);text-shadow:0 0 12px rgba(0,212,255,.5),0 0 35px rgba(0,212,255,.15);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border-subtle);scroll-margin-top:80px}
+.faq-card{background:rgba(13,19,32,.65);border:1px solid rgba(255,255,255,.06);border-radius:var(--r-lg);backdrop-filter:blur(8px);padding:20px 24px;margin-bottom:12px;transition:border-color .3s ease}
+.faq-card:hover{border-color:rgba(0,212,255,.18)}
+.faq-card h3{font-family:'JetBrains Mono',monospace;font-size:.8rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-primary);margin-bottom:10px}
+.faq-card p,.faq-card li{font-size:.82rem;color:var(--text-secondary);line-height:1.7;letter-spacing:.3px}
+.faq-card ul,.faq-card ol{padding-left:20px;margin:8px 0}
+.faq-card li{margin-bottom:4px}
+.faq-card code{font-family:'JetBrains Mono','Cascadia Code','Consolas',monospace;font-size:.75rem;background:rgba(0,212,255,.08);color:var(--teal);padding:2px 6px;border-radius:3px;border:1px solid rgba(0,212,255,.12)}
+.faq-card pre{background:rgba(0,0,0,.3);border:1px solid var(--border-subtle);border-radius:var(--r-md);padding:14px 18px;overflow-x:auto;margin:10px 0;font-family:'JetBrains Mono','Cascadia Code','Consolas',monospace;font-size:.72rem;line-height:1.6;color:var(--text-secondary)}
+.faq-card .highlight{color:var(--green);font-weight:600}
+.faq-card .warn{color:var(--amber);font-weight:600}
+.faq-card .critical{color:var(--red);font-weight:600}
+.faq-table{width:100%;border-collapse:collapse;font-size:.78rem;margin:10px 0}
+.faq-table th{text-align:left;padding:8px 12px;border-bottom:1px solid var(--border-medium);color:var(--teal);font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:1px;text-transform:uppercase}
+.faq-table td{padding:8px 12px;border-bottom:1px solid var(--border-subtle);color:var(--text-secondary);vertical-align:top}
+.faq-table tr:hover td{background:var(--bg-hover)}
+.faq-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.65rem;font-weight:600;letter-spacing:.5px}
+.faq-badge-pki{background:rgba(0,212,255,.1);color:var(--teal);border:1px solid rgba(0,212,255,.25)}
+.faq-badge-valid{background:rgba(0,230,138,.1);color:var(--green);border:1px solid rgba(0,230,138,.25)}
+.faq-badge-warn{background:rgba(255,170,0,.12);color:var(--amber);border:1px solid rgba(255,170,0,.25)}
+.faq-badge-crit{background:rgba(255,68,102,.12);color:var(--red);border:1px solid rgba(255,68,102,.25)}
+.page-top-accent{height:2px;background:linear-gradient(90deg,var(--rtx-red),#e8334a,var(--teal),#a855f7,var(--rtx-red));background-size:300% auto;animation:gradientShift 6s linear infinite}
+.back-to-top{position:fixed;bottom:24px;right:24px;z-index:200;width:36px;height:36px;border-radius:50%;border:1px solid var(--border-medium);background:rgba(13,19,32,.85);backdrop-filter:blur(12px);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity var(--t-base),border-color var(--t-fast),color var(--t-fast)}
+.back-to-top.visible{opacity:1;pointer-events:auto}
+.back-to-top:hover{border-color:var(--teal);color:var(--teal)}
+[data-theme="light"] .faq-hero h1{color:var(--text-primary);text-shadow:none}
+[data-theme="light"] .faq-section-title{text-shadow:none}
+[data-theme="light"] .faq-card{background:#ffffff;border-color:rgba(0,0,0,.08);box-shadow:0 1px 6px rgba(0,0,0,.06)}
+[data-theme="light"] .faq-card:hover{border-color:rgba(13,148,136,.2);box-shadow:0 4px 16px rgba(0,0,0,.08)}
+[data-theme="light"] .faq-card code{background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.14);color:var(--text-primary)}
+[data-theme="light"] .faq-card pre{background:rgba(0,0,0,.03);border-color:rgba(0,0,0,.14)}
+</style>
+</head>
+<body>
+<div class="page-top-accent"></div>
+<header class="dashboard-header">
+  <div class="header-left">
+    <img src="rtx_logo.svg" alt="RTX" class="header-logo">
+    <div class="header-divider"></div>
+    <div>
+      <div class="header-title">CA CERTIFICATE STATUS</div>
+      <div class="header-subtitle">Technical Reference</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="faq-badge faq-badge-pki">PKI</span>
+    <a href="index.html" style="display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:16px;font-family:'JetBrains Mono',monospace;font-size:.62rem;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;text-decoration:none;color:var(--teal);border:1px solid rgba(0,212,255,.25);background:rgba(0,212,255,.06);transition:all .3s ease">&#8592; DASHBOARD</a>
+    <div class="dropdown-container" style="position:relative;display:inline-block;margin-left:12px;">
+      <button id="settingsBtn" title="Settings" style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:var(--text-secondary);cursor:pointer;transition:all 0.3s ease;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+      </button>
+      <div id="settingsMenu" style="visibility:hidden;display:flex;position:absolute;right:0;top:calc(100% + 12px);background:var(--bg-surface);border:1px solid var(--border-medium);border-radius:12px;padding:10px;flex-direction:column;min-width:220px;box-shadow:0 15px 50px rgba(0,0,0,0.8);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);z-index:999;opacity:0;transform:translateY(-10px);pointer-events:none;transition:all 0.2s cubic-bezier(0.175,0.885,0.32,1.275);">
+        <a href="faq.html" class="settings-item">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--teal);flex-shrink:0;"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span>Technical Reference</span>
+        </a>
+        <div style="height:1px;background:var(--border-subtle);margin:6px 0;"></div>
+        <button id="themeToggle" class="settings-item"><div style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:rgba(0,212,255,0.12);border:1px solid rgba(0,212,255,0.25);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg></div><span>Toggle Theme (Frosty)</span></button>
+        <button id="fullscreenBtn" class="settings-item" onclick="if(document.fullscreenElement){document.exitFullscreen()}else{document.documentElement.requestFullscreen()}">
+          <div style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:rgba(0,212,255,0.12);border:1px solid rgba(0,212,255,0.25);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg></div>
+          <span>Fullscreen</span>
+        </button>
+      </div>
+    </div>
+    <style>
+      #settingsBtn:hover{background:rgba(255,255,255,0.1)!important;color:#fff!important;transform:rotate(30deg)}
+      [data-theme="light"] #settingsBtn{border-color:rgba(0,0,0,0.15)!important;color:var(--text-secondary)!important}
+      [data-theme="light"] #settingsBtn:hover{background:rgba(0,0,0,0.06)!important;color:var(--teal)!important}
+      [data-theme="light"] #settingsMenu{background:rgba(255,255,255,0.98)!important;box-shadow:0 15px 40px rgba(0,0,0,0.15)!important}
+      .settings-item{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;font-family:'Inter',sans-serif;font-size:0.8rem;font-weight:500;color:var(--text-primary);background:transparent;border:none;cursor:pointer;transition:all 0.2s;text-align:left;text-decoration:none;width:100%}
+      .settings-item:hover{background:rgba(255,255,255,0.09);border-left:2px solid var(--teal);padding-left:12px;transform:translateX(2px)}
+      #settingsMenu.show{visibility:visible!important;opacity:1!important;transform:translateY(0)!important;pointer-events:auto!important}
+    </style>
+    <script>
+      document.getElementById('settingsBtn').addEventListener('click',function(e){document.getElementById('settingsMenu').classList.toggle('show');e.stopPropagation()});
+      document.addEventListener('click',function(e){var m=document.getElementById('settingsMenu');if(m&&m.classList.contains('show')&&!m.contains(e.target))m.classList.remove('show')});
+    </script>
+  </div>
+</header>
+
+<div class="faq-main">
+
+<div class="faq-hero">
+  <h1>Technical Reference</h1>
+  <p>Complete documentation for the RTX CA Certificate Status Dashboard - architecture, certificate discovery, data collection, deployment, and troubleshooting.</p>
+</div>
+<div class="faq-toc glass-card" style="padding:20px 24px">
+  <h3 style="font-family:'JetBrains Mono',monospace;font-size:.8rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--teal);margin-bottom:14px">Table of Contents</h3>
+  <div class="faq-toc-grid">
+    <a href="#overview"><span>01</span> Overview &amp; Architecture</a>
+    <a href="#tech-stack"><span>02</span> Technology Stack</a>
+    <a href="#cert-discovery"><span>03</span> Certificate Discovery</a>
+    <a href="#status-system"><span>04</span> Status &amp; Color System</a>
+    <a href="#collector"><span>05</span> Data Collector</a>
+    <a href="#webserver"><span>06</span> Web Server</a>
+    <a href="#https"><span>07</span> HTTPS &amp; SSL Certificates</a>
+    <a href="#deployment"><span>08</span> Deployment</a>
+    <a href="#updating"><span>09</span> Updating</a>
+    <a href="#uninstall"><span>10</span> Uninstall</a>
+    <a href="#troubleshooting"><span>11</span> Troubleshooting</a>
+    <a href="#personalization"><span>12</span> Browser Personalization</a>
+  </div>
+</div>
+<div class="faq-section" id="overview">
+  <div class="faq-section-title">01 - Overview &amp; Architecture</div>
+  <div class="faq-card">
+    <h3>What is this dashboard?</h3>
+    <p>The <span class="highlight">RTX CA Certificate Status Dashboard</span> is a read-only monitoring display for PKI certificate health in your Active Directory environment. It surfaces Enterprise CA certificate expiry dates and self-signed certificate inventory from the local machine's certificate stores, rendered as a real-time single-page web application.</p>
+  </div>
+  <div class="faq-card">
+    <h3>Data Flow</h3>
+    <pre>Active Directory (certutil -TCAInfo)     Local Machine Cert Store
+           &#x2193;                                       &#x2193;
+  Collect-CACertData.ps1         (CryptoAPI / Get-ChildItem Cert:\)
+  (runs every 60 min)
+           &#x2193;
+  data/ca_data.json
+           &#x2193;
+  serve.ps1  (HTTP web server on port 8089)
+           &#x2193;
+  Browser  (auto-refreshes every 60 seconds)</pre>
+    <p>The collector discovers Enterprise CAs via <code>certutil -TCAInfo</code>, pings each CA, retrieves expiry dates via <code>certutil -CAInfo</code>, and falls back to the local cert store for offline CAs. Self-signed certs are enumerated from <code>Cert:\LocalMachine\My</code>, <code>CA</code>, and <code>Root</code>.</p>
+  </div>
+  <div class="faq-card">
+    <h3>Runtime Components</h3>
+    <table class="faq-table">
+      <tr><th>Component</th><th>File</th><th>Runs As</th></tr>
+      <tr><td>Data Collector</td><td><code>scripts/Collect-CACertData.ps1</code></td><td>Scheduled Task (SYSTEM or named account) every 60 min</td></tr>
+      <tr><td>Web Server</td><td><code>scripts/serve.ps1</code></td><td>Scheduled Task (SYSTEM or named account) at startup</td></tr>
+      <tr><td>Dashboard UI</td><td><code>index.html</code> + <code>app.js</code> + <code>cacert.js</code> + <code>styles.css</code></td><td>Client browser</td></tr>
+    </table>
+  </div>
+</div>
+<div class="faq-section" id="tech-stack">
+  <div class="faq-section-title">02 - Technology Stack</div>
+  <div class="faq-card">
+    <h3>Frontend (Zero Dependencies)</h3>
+    <p>Plain <span class="highlight">HTML, CSS, and vanilla JavaScript</span> - no React, Angular, or npm. No Chart.js required (certs display as tables, not charts).</p>
+    <ul>
+      <li><code>index.html</code> - Page structure, header, skeleton loader</li>
+      <li><code>app.js</code> - Data fetching, polling, header update, theme cycling</li>
+      <li><code>cacert.js</code> - Certificate table rendering, status pills, sort logic</li>
+      <li><code>styles.css</code> - Shared RTX design system (identical to Admin/Kiosk dashboards)</li>
+    </ul>
+  </div>
+  <div class="faq-card">
+    <h3>Backend (PowerShell Only)</h3>
+    <p>All server-side logic uses <span class="highlight">PowerShell 5.1</span>. No IIS, no ASP.NET, no third-party frameworks.</p>
+    <ul>
+      <li><code>scripts/Collect-CACertData.ps1</code> - CA discovery and cert data collector</li>
+      <li><code>scripts/serve.ps1</code> - Standalone HTTP/HTTPS web server (<code>System.Net.HttpListener</code>)</li>
+      <li><code>scripts/Setup-CACertDashboard.ps1</code> - 6-step deployment wizard</li>
+      <li><code>scripts/Remove-CACertDashboard.ps1</code> - Clean uninstall</li>
+      <li><code>scripts/Update-CACertDashboard.ps1</code> - File-only update (SHA256 diff)</li>
+    </ul>
+  </div>
+</div>
+<div class="faq-section" id="cert-discovery">
+  <div class="faq-section-title">03 - Certificate Discovery</div>
+  <div class="faq-card">
+    <h3>Enterprise CA Discovery (Method 1 - certutil -TCAInfo)</h3>
+    <p>Primary method. Runs <code>certutil -TCAInfo</code> which queries Active Directory for all published Enterprise CAs. Parses the output for <code>Config:</code> strings (format: <code>SERVER\CA-Name</code>).</p>
+    <ol>
+      <li>Output is split into blocks on blank lines</li>
+      <li>Each block matching a backslash config string is extracted</li>
+      <li>Config and display name are parsed via regex</li>
+    </ol>
+  </div>
+  <div class="faq-card">
+    <h3>Enterprise CA Discovery (Method 2 - COM Fallback)</h3>
+    <p>If <code>certutil</code> fails or returns no results, falls back to the <code>CertificateAuthority.Config</code> COM object:</p>
+    <pre>$caLocator = New-Object -ComObject CertificateAuthority.Config
+$config = $caLocator.GetConfig(0)  # Returns first CA in AD</pre>
+    <p>This requires the Certificate Services client RSAT feature or a machine enrolled in the domain.</p>
+  </div>
+  <div class="faq-card">
+    <h3>CA Reachability Test</h3>
+    <p>Each discovered CA is pinged via <code>certutil -config &lt;config&gt; -ping</code>. If the output contains <code>interface is alive</code>, the CA is marked reachable and full certificate details are retrieved.</p>
+  </div>
+  <div class="faq-card">
+    <h3>Certificate Details - certutil -CAInfo</h3>
+    <p>For reachable CAs, runs <code>certutil -config &lt;config&gt; -CAInfo</code> and parses:</p>
+    <table class="faq-table">
+      <tr><th>Field</th><th>Regex Pattern</th></tr>
+      <tr><td>NotAfter (expiry)</td><td><code>NotAfter\s*=\s*(.+)</code></td></tr>
+      <tr><td>Subject</td><td><code>^\s*Subject\s*:\s*(.+)</code></td></tr>
+      <tr><td>Issuer</td><td><code>^\s*Issuer\s*:\s*(.+)</code></td></tr>
+      <tr><td>Thumbprint</td><td><code>Cert\s*Hash.*?:\s*([0-9a-fA-F\s]+)</code></td></tr>
+    </table>
+  </div>
+  <div class="faq-card">
+    <h3>Certificate Details - Local Store Fallback</h3>
+    <p>For unreachable CAs, the collector falls back to searching <code>Cert:\LocalMachine\CA</code> and <code>Cert:\LocalMachine\Root</code> for certificates whose Subject or Issuer matches the CA name. The most recently expiring match is used.</p>
+  </div>
+  <div class="faq-card">
+    <h3>Self-Signed Certificate Enumeration</h3>
+    <p>Scans three local machine stores - <code>My</code>, <code>CA</code>, <code>Root</code> - for certificates where <code>Subject == Issuer</code>. ConfigMgr/SMS-generated certs (<code>SMS_SiteCode</code>, <code>SMSI</code>) are excluded to reduce noise if the dashboard is co-hosted on a site server. Deduplication is done by thumbprint.</p>
+  </div>
+</div>
+<div class="faq-section" id="status-system">
+  <div class="faq-section-title">04 - Status &amp; Color System</div>
+  <div class="faq-card">
+    <h3>Certificate Status Thresholds</h3>
+    <table class="faq-table">
+      <tr><th>Status</th><th>Days Remaining</th><th>Color</th><th>Meaning</th></tr>
+      <tr><td><span class="faq-badge faq-badge-valid">VALID</span></td><td>&ge; 60 days</td><td><span class="highlight">Green</span></td><td>Certificate is healthy, no action needed</td></tr>
+      <tr><td><span class="faq-badge faq-badge-warn">WARNING</span></td><td>15 - 59 days</td><td><span class="warn">Amber</span></td><td>Renewal recommended soon</td></tr>
+      <tr><td><span class="faq-badge faq-badge-crit">CRITICAL</span></td><td>1 - 14 days</td><td><span class="critical">Red</span></td><td>Renewal urgent - services may break shortly</td></tr>
+      <tr><td><span class="faq-badge faq-badge-crit">EXPIRED</span></td><td>&lt; 0 days</td><td><span class="critical">Red</span></td><td>Certificate has already expired</td></tr>
+      <tr><td><span class="faq-badge faq-badge-warn">UNREACHABLE</span></td><td>N/A</td><td><span class="warn">Amber</span></td><td>CA did not respond - check connectivity</td></tr>
+    </table>
+    <p>Thresholds are defined in the <code>Get-CertStatus</code> function in <code>Collect-CACertData.ps1</code> and are easy to adjust.</p>
+  </div>
+  <div class="faq-card">
+    <h3>Enterprise CA Summary Grid</h3>
+    <p>Above the Enterprise CA table, a summary grid shows individual counts for each status category:</p>
+    <ul>
+      <li><span class="highlight">Total</span> — total number of Enterprise CAs discovered</li>
+      <li><span class="highlight">Valid</span> — CAs with &ge; 60 days remaining</li>
+      <li><span class="warn">Warning</span> — CAs expiring within 15–59 days</li>
+      <li><span class="critical">Critical</span> — CAs expiring within 14 days</li>
+      <li><span class="critical">Expired</span> — CAs with a past expiry date</li>
+      <li><span class="warn">Unreachable</span> — CAs that did not respond to <code>certutil -ping</code></li>
+    </ul>
+    <p>Each count is color-coded (green / amber / red) and rendered in large bold numerals for at-a-glance visibility.</p>
+  </div>
+  <div class="faq-card">
+    <h3>Reachability Indicator</h3>
+    <p>Within the Enterprise CA table, each row shows a colored dot next to the CA name:</p>
+    <ul>
+      <li><span class="highlight">? - ? (green)</span> - CA responded to <code>certutil -ping</code></li>
+      <li><span class="critical">? - ? (red)</span> - CA did not respond; cert data sourced from local store if available</li>
+    </ul>
+  </div>
+</div>
+<div class="faq-section" id="collector">
+  <div class="faq-section-title">05 - Data Collector</div>
+  <div class="faq-card">
+    <h3>How Collect-CACertData.ps1 Works</h3>
+    <ol>
+      <li>Discovers Enterprise CAs from Active Directory via <code>certutil -TCAInfo</code></li>
+      <li>Falls back to the <code>CertificateAuthority.Config</code> COM object if step 1 yields nothing</li>
+      <li>Pings each CA via <code>certutil -config &lt;config&gt; -ping</code></li>
+      <li>For reachable CAs: retrieves expiry, subject, issuer, and thumbprint via <code>certutil -CAInfo</code></li>
+      <li>For unreachable CAs: searches local machine cert stores for a matching certificate</li>
+      <li>Scans <code>Cert:\LocalMachine\My</code>, <code>CA</code>, <code>Root</code> for self-signed certs (Subject == Issuer)</li>
+      <li>Calculates <code>daysRemaining</code> and assigns status for each cert</li>
+      <li>Writes atomic JSON to <code>data/ca_data.json</code> via temp file + rename</li>
+    </ol>
+  </div>
+  <div class="faq-card">
+    <h3>JSON Output Structure</h3>
+    <pre>{
+  "caCertExpiry": {
+    "collectedAt": "2026-04-14T16:00:00Z",
+    "enterpriseSummary": { "total":2, "valid":1, "warning":1, "critical":0,
+                           "expired":0, "unreachable":0 },
+    "selfSignedSummary": { "total":5, "valid":5, "warning":0,
+                           "critical":0, "expired":0 },
+    "cas": [
+      { "caName":"EWAN-CA", "caConfig":"CM1\\EWAN-CA",
+        "reachable":true, "status":"warning",
+        "notAfter":"2026-05-20", "daysRemaining":36,
+        "subject":"CN=EWAN-CA,...", "thumbprint":"ABC123..." }
+    ],
+    "selfSigned": [
+      { "friendlyName":"IIS-SelfSigned", "store":"My", "status":"valid",
+        "notAfter":"2027-01-01", "daysRemaining":262,
+        "subject":"CN=IIS-SelfSigned,...", "thumbprint":"DEF456..." }
+    ]
+  }
+}</pre>
+  </div>
+  <div class="faq-card">
+    <h3>Atomic JSON Write</h3>
+    <p>The collector writes a temp file (<code>ca_data_&lt;random8&gt;.tmp</code>) and then moves it atomically to <code>ca_data.json</code>. This prevents the web server from serving a partially-written file. Up to 10 retries with 500ms delays are attempted if a file lock is held.</p>
+  </div>
+  <div class="faq-card">
+    <h3>Scheduling</h3>
+    <p>The data collector runs as a Windows Scheduled Task named <code>CA-Dashboard-DataCollect</code>:</p>
+    <ul>
+      <li>Trigger: <code>-RepetitionInterval 60 minutes</code> (configurable at setup time)</li>
+      <li>Principal: <code>SYSTEM</code> by default (<code>ServiceAccount</code> logon); or a named domain account (<code>Password</code> logon) if specified during setup</li>
+      <li>Multiple instances: <code>IgnoreNew</code> (prevents overlap)</li>
+      <li>Action: <code>powershell.exe -NonInteractive -ExecutionPolicy Bypass -File Collect-CACertData.ps1</code></li>
+    </ul>
+    <p>60 minutes is the recommended default for this dashboard. CA certificate expiry is slow-moving data measured in months — hourly polling gives adequate freshness without unnecessary RPC overhead to the CA.</p>
+  </div>
+  <div class="faq-card">
+    <h3>Requirements</h3>
+    <ul>
+      <li><span class="highlight">Windows PowerShell 5.1</span></li>
+      <li><span class="highlight">Domain-joined machine</span> with network access to Enterprise CAs</li>
+      <li><span class="highlight">RSAT Certificate Services or certutil</span> available (built-in on all Windows Server installations)</li>
+      <li><span class="highlight">SYSTEM account</span> must be able to reach CA hosts on TCP 135 / dynamic RPC</li>
+    </ul>
+  </div>
+</div>
+<div class="faq-section" id="webserver">
+  <div class="faq-section-title">06 - Web Server</div>
+  <div class="faq-card">
+    <h3>How serve.ps1 Works</h3>
+    <p>Uses a standalone <code>System.Net.HttpListener</code> - not IIS.</p>
+    <ol>
+      <li>Checks for an SSL certificate binding via <code>netsh http show sslcert</code></li>
+      <li>If bound, starts HTTPS; otherwise starts HTTP</li>
+      <li>Listens on <code>http://+:8089/</code> (or <code>https://+:8089/</code>)</li>
+      <li>Serves files from the install directory with appropriate MIME types</li>
+      <li>Exposes <code>/api/whoami</code> for the user identity badge</li>
+    </ol>
+  </div>
+  <div class="faq-card">
+    <h3>Scheduled Task</h3>
+    <p>The web server runs as <code>CA-Dashboard-WebServer</code>:</p>
+    <ul>
+      <li>Trigger: <code>AtStartup</code></li>
+      <li>Execution time limit: 9,999 days (effectively unlimited)</li>
+      <li>Multiple instances: <code>IgnoreNew</code></li>
+      <li>Runs hidden: <code>-WindowStyle Hidden</code></li>
+    </ul>
+  </div>
+  <div class="faq-card">
+    <h3>Default Port</h3>
+    <p>Default port is <code>8089</code>. URL ACLs are registered for both HTTP and HTTPS:</p>
+    <pre>netsh http add urlacl url=http://+:8089/ user=Everyone
+netsh http add urlacl url=https://+:8089/ user=Everyone</pre>
+    <p>A Windows Firewall inbound rule is created for TCP 8089 on Domain and Private profiles.</p>
+  </div>
+</div>
+<div class="faq-section" id="https">
+  <div class="faq-section-title">07 - HTTPS &amp; SSL Certificates</div>
+  <div class="faq-card">
+    <h3>Certificate Options</h3>
+    <ol>
+      <li><span class="highlight">Enterprise CA (recommended):</span> <code>Request-CACert.ps1</code> or <code>New-DashboardCert.ps1</code> requests a trusted cert from your AD CS using the WebServer template.</li>
+      <li><span class="highlight">Self-Signed:</span> <code>New-DashboardCert.ps1</code> generates a self-signed certificate with SANs (hostname, FQDN, localhost, 127.0.0.1). Stored in <code>Cert:\LocalMachine\My</code>.</li>
+    </ol>
+    <p class="warn">Setup will display a [SKIP] warning if <code>New-DashboardCert.ps1</code> is not found in the source directory. Run with HTTP until SSL is configured manually.</p>
+  </div>
+  <div class="faq-card">
+    <h3>SSL Binding</h3>
+    <pre>netsh http add sslcert ipport=0.0.0.0:8089 certhash=&lt;THUMBPRINT&gt; appid={...} certstorename=MY
+netsh http add sslcert ipport=[::]:8089 certhash=&lt;THUMBPRINT&gt; appid={...} certstorename=MY</pre>
+    <p>Both IPv4 and IPv6 bindings are created. Uses SHA256 thumbprints - FIPS-compliant.</p>
+  </div>
+  <div class="faq-card">
+    <h3>Safety</h3>
+    <ul>
+      <li>Only binds to port 8089 - does not affect port 443, 8086, or 8087</li>
+    </ul>
+  </div>
+</div>
+<div class="faq-section" id="deployment">
+  <div class="faq-section-title">08 - Deployment</div>
+  <div class="faq-card">
+    <h3>Setup-CACertDashboard.ps1 - 6-Step Wizard</h3>
+    <table class="faq-table">
+      <tr><th>Step</th><th>Action</th></tr>
+      <tr><td>1/6</td><td>Create install directory structure (<code>C:\RTX-Dashboard-CA-Status\</code>, <code>data\</code>, <code>scripts\</code>)</td></tr>
+      <tr><td>2/6</td><td>Copy dashboard files (HTML, JS, CSS, SVG, scripts) from source directory</td></tr>
+      <tr><td>3/6</td><td>Configure <code>serve.ps1</code> with chosen port and root path</td></tr>
+      <tr><td>4/6</td><td>SSL certificate setup (interactive choice between [1] Self-signed and [2] Enterprise CA)</td></tr>
+      <tr><td>5/6</td><td>Register scheduled tasks (WebServer + DataCollect), URL ACLs, firewall rule</td></tr>
+      <tr><td>6/6</td><td>Start tasks and run initial data collection</td></tr>
+    </table>
+  </div>
+  <div class="faq-card">
+    <h3>Default Configuration</h3>
+    <table class="faq-table">
+      <tr><th>Setting</th><th>Default</th></tr>
+      <tr><td>Install path</td><td><code>C:\RTX-Dashboard-CA-Status</code></td></tr>
+      <tr><td>Dashboard port</td><td><code>8089</code></td></tr>
+      <tr><td>Collection interval</td><td><code>60 minutes</code></td></tr>
+      <tr><td>Task account</td><td><code>SYSTEM</code> (press Enter at prompt to accept)</td></tr>
+      <tr><td>Task password</td><td>N/A when using SYSTEM</td></tr>
+      <tr><td>Data file</td><td><code>data/ca_data.json</code></td></tr>
+    </table>
+  </div>
+  <div class="faq-card">
+    <h3>Scheduled Task Account Prompt</h3>
+    <p>Setup presents two interactive prompts before deployment begins — one for collection interval and one for the task account. Press <span class="highlight">Enter</span> at each to accept the default.</p>
+    <pre>  Collect interval in minutes [60]:          &lt;-- press Enter for 60, or type a number
+  Task account [SYSTEM]:                     &lt;-- press Enter for SYSTEM, or type DOMAIN\Account
+  Password for DOMAIN\Account: ********      &lt;-- only shown if a named account was entered</pre>
+    <p>The account is registered with <code>LogonType = Password</code> for both scheduled tasks (<code>CA-Dashboard-WebServer</code> and <code>CA-Dashboard-DataCollect</code>).</p>
+    <p class="warn">DC-hosted CA: If your Enterprise CA lives on a Domain Controller locked down to Domain Admin accounts, SYSTEM will be blocked from certutil RPC queries. Supply a DA-privileged service account at this prompt to resolve the issue.</p>
+  </div>
+  <div class="faq-card">
+    <h3>Silent / Unattended Deployment</h3>
+    <pre># Default SYSTEM account, 60-min interval (member server)
+.\Setup-CACertDashboard.ps1 -Force
+
+# Custom interval
+.\Setup-CACertDashboard.ps1 -Force -CollectInterval 120
+
+# Named account (DC-hosted CA or hardened environment)
+.\Setup-CACertDashboard.ps1 -Force -TaskAccount "DOMAIN\SVC-CA-Reader" -TaskPassword "P@ssw0rd"
+
+# Named account + custom interval
+.\Setup-CACertDashboard.ps1 -Force -TaskAccount "DOMAIN\SVC-CA-Reader" -TaskPassword "P@ssw0rd" -CollectInterval 120</pre>
+    <p>Using <code>-Force</code> bypasses all interactive prompts. SSL defaults to [1] Self-signed unless <code>-Force</code> is combined with a manual SSL pre-configuration. Passing <code>-TaskAccount</code> and <code>-TaskPassword</code> together enables fully unattended deployment with a named service account.</p>
+  </div>
+  <div class="faq-card">
+    <h3>Prerequisites</h3>
+    <ul>
+      <li>Windows Server (domain-joined) with network access to Enterprise CA hosts</li>
+      <li>PowerShell 5.1+ (Windows PowerShell - NOT PowerShell 7 required)</li>
+      <li>Administrator privileges (scheduled tasks, firewall rules, URL ACLs)</li>
+      <li><code>certutil.exe</code> available (built-in on all Windows; RSAT adds CA admin tools)</li>
+    </ul>
+  </div>
+</div>
+<div class="faq-section" id="updating">
+  <div class="faq-section-title">09 - Updating</div>
+  <div class="faq-card">
+    <h3>Update-CACertDashboard.ps1</h3>
+    <p>Pushes updated UI and script files without reconfiguring infrastructure:</p>
+    <ol>
+      <li>Compares SHA256 hashes between source and deployed files</li>
+      <li>Copies only changed files</li>
+      <li>Preserves <code>serve.ps1</code> port and path configuration</li>
+      <li>Restarts the web server scheduled task</li>
+      <li>Triggers an immediate data collection run</li>
+    </ol>
+    <p>Does <span class="critical">NOT</span> modify: scheduled task configuration, firewall rules, SSL certificates, or URL ACLs.</p>
+  </div>
+</div>
+<div class="faq-section" id="uninstall">
+  <div class="faq-section-title">10 - Uninstall</div>
+  <div class="faq-card">
+    <h3>Remove-CACertDashboard.ps1</h3>
+    <p>Cleanly removes all dashboard components:</p>
+    <ul>
+      <li>Scheduled tasks (<code>CA-Dashboard-WebServer</code>, <code>CA-Dashboard-DataCollect</code>)</li>
+      <li>Windows Firewall inbound rule for port 8089</li>
+      <li>SSL certificate bindings (port-specific via <code>netsh http delete sslcert</code>)</li>
+      <li>URL ACL reservations (<code>netsh http delete urlacl</code>)</li>
+      <li>Dashboard install directory and all files</li>
+    </ul>
+    <p>Does <span class="critical">NOT</span> remove: SSL certificates from the cert store, or directory source files.</p>
+  </div>
+</div>
+<div class="faq-section" id="troubleshooting">
+  <div class="faq-section-title">11 - Troubleshooting</div>
+  <div class="faq-card">
+    <h3>Common Issues</h3>
+    <table class="faq-table">
+      <tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr>
+      <tr><td><span class="warn">Dashboard shows "-" everywhere</span></td><td><code>ca_data.json</code> not yet generated</td><td>Run <code>Collect-CACertData.ps1</code> manually as Administrator; check task status in Task Scheduler</td></tr>
+      <tr><td><span class="warn">All CAs show Unreachable</span></td><td>Network / firewall blocking certutil</td><td>Test <code>certutil -config SERVER\CA -ping</code> manually; verify TCP 135 + dynamic RPC open to CA hosts</td></tr>
+      <tr><td><span class="warn">All CAs show Unreachable (DC scenario)</span></td><td>CA is on a DC; SYSTEM blocked by DC lockdown policy</td><td>Re-run setup and enter a DA-privileged service account at the task account prompt, or pass <code>-TaskAccount</code> / <code>-TaskPassword</code> with <code>-Force</code></td></tr>
+      <tr><td><span class="warn">No Enterprise CAs found</span></td><td>Machine not domain-joined, or AD CS not published</td><td>Run <code>certutil -TCAInfo</code> manually; verify domain connectivity</td></tr>
+      <tr><td><span class="warn">Unexpected token '??'</span></td><td>Script ran under PowerShell 7</td><td>Ensure scheduled task uses <code>powershell.exe</code> (5.1), not <code>pwsh.exe</code> (7). Fixed in current version.</td></tr>
+      <tr><td><span class="warn">Web server not starting</span></td><td>Port in use or URL ACL missing</td><td>Check <code>netstat -an | findstr 8089</code>; re-run <code>netsh http add urlacl</code> commands from setup</td></tr>
+      <tr><td><span class="warn">HTTPS shows "Not Secure"</span></td><td>No SSL cert bound, or self-signed cert not trusted</td><td>Selecting [1] Self-signed generates an untrusted cert. Import it to Trusted Root CAs on your client machine.</td></tr>
+      <tr><td><span class="warn">styles.css / logo missing</span></td><td>Not copied during setup (source files absent)</td><td>Copy from Admin/Kiosk dashboard source: <code>styles.css</code>, <code>rtx_logo.svg</code></td></tr>
+    </table>
+  </div>
+  <div class="faq-card">
+    <h3>Manual Collection Run</h3>
+    <pre># Run as Administrator in PowerShell 5.1
+& "C:\RTX-Dashboard-CA-Status\scripts\Collect-CACertData.ps1"</pre>
+    <p>Output is displayed in the console - check for <span class="warn">[WARN]</span> lines indicating certutil failures or parse errors.</p>
+  </div>
+  <div class="faq-card">
+    <h3>Verify Scheduled Tasks</h3>
+    <pre>Get-ScheduledTask -TaskName "CA-Dashboard-*" | Select-Object TaskName, State, @{n="LastRun";e={$_.LastRunTime}}</pre>
+  </div>
+  <div class="faq-card">
+    <h3>Check JSON Output</h3>
+    <pre>$json = Get-Content "C:\RTX-Dashboard-CA-Status\data\ca_data.json" | ConvertFrom-Json
+$json.caCertExpiry.enterpriseSummary
+$json.caCertExpiry.cas | Select-Object caName, status, notAfter, daysRemaining</pre>
+  </div>
+  <div class="faq-card">
+    <h3>Port &amp; Reserved Port List</h3>
+    <p>Port 8089 is specifically chosen to avoid conflicts with common Windows Server ports:</p>
+    <table class="faq-table">
+      <tr><th>Port</th><th>Reserved By</th></tr>
+      <tr><td>80, 443</td><td>IIS / Web Services</td></tr>
+      <tr><td>8530, 8531</td><td>WSUS</td></tr>
+      <tr><td>8086</td><td>RTX Kiosk Dashboard</td></tr>
+      <tr><td>8087</td><td>RTX Admin Dashboard</td></tr>
+      <tr><td>8443</td><td>PBIRS (Power BI Report Server)</td></tr>
+      <tr><td>8089</td><td><span class="highlight">CA Certificate Status Dashboard</span></td></tr>
+    </table>
+  </div>
+</div>
+<div class="faq-section" id="personalization">
+  <div class="faq-section-title">12 - Browser Personalization</div>
+  <div class="faq-card">
+    <h3>Theme Persistence</h3>
+    <p>The theme preference (Dark / Frosty / Light) is stored in <code>localStorage</code> under the key <code>ca-dash-theme</code>. It persists across reloads and browser restarts per-browser, per-profile. Clearing browser data resets to Dark.</p>
+    <table class="faq-table">
+      <tr><th>Theme</th><th>Best For</th></tr>
+      <tr><td>Dark (default)</td><td>NOC screens, dim rooms, reduced eye strain</td></tr>
+      <tr><td>Frosty</td><td>Ice-blue variant - standout wall displays</td></tr>
+      <tr><td>Light</td><td>Well-lit offices, projectors, printed screenshots</td></tr>
+    </table>
+  </div>
+  <div class="faq-card">
+    <h3>Back to Top</h3>
+    <p>The <span class="highlight">↑</span> button appears in the bottom-right corner after scrolling 300px. Click it to smoothly scroll back to the top of the page.</p>
+  </div>
+</div>
+
+<div style="text-align:center;padding:32px 0;color:var(--text-dim);font-size:.7rem;letter-spacing:1px;font-family:'JetBrains Mono',monospace">
+  RTX CA Certificate Status Dashboard - v1.0
+</div>
+
+</div>
+
+<button id="backToTop" class="back-to-top" aria-label="Back to top" title="Back to top">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+</button>
+
+<script>
+(function(){
+  var t=document.getElementById('themeToggle');
+  var THEMES=['','frosty','light'];
+  var LABELS={'':'Toggle Theme (Frosty)','frosty':'Toggle Theme (Light)','light':'Toggle Theme (Dark)'};
+  var saved='';try{saved=localStorage.getItem('ca-dash-theme')||'';}catch(e){}
+  document.documentElement.setAttribute('data-theme',saved);
+  if(t){var sp=t.querySelector('span');if(sp)sp.textContent=LABELS[saved]||'Toggle Theme';}
+  if(t){t.addEventListener('click',function(){var cur=document.documentElement.getAttribute('data-theme')||'';var idx=THEMES.indexOf(cur);var next=THEMES[(idx+1)%THEMES.length];document.documentElement.setAttribute('data-theme',next);try{localStorage.setItem('ca-dash-theme',next);}catch(e){}var sp=t.querySelector('span');if(sp)sp.textContent=LABELS[next]||'Toggle Theme';});}
+  var b=document.getElementById('backToTop');
+  if(b){window.addEventListener('scroll',function(){b.classList.toggle('visible',window.scrollY>100)},{passive:true});b.addEventListener('click',function(){window.scrollTo({top:0,behavior:'smooth'})});}
+})();
+</script>
+
+<div id="versionTag" style="position:fixed;bottom:8px;right:12px;z-index:50;font-family:'JetBrains Mono','Fira Code',monospace;font-size:.62rem;letter-spacing:.5px;color:var(--text-dim,rgba(255,255,255,.25));pointer-events:none;user-select:none">v1.0</div>
+</body>
+</html>
+
+
